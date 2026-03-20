@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ぽろたん - 英検2級 完全版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        :root { --bg: #fdfbf6; --primary: #ff8c00; --accent: #ffd700; --text: #5d4037; }
+        body {
+            font-family: "Hiragino Maru Gothic ProN", "Hiragino Kaku Gothic ProN", sans-serif;
+            margin: 0; background: var(--bg); color: var(--text);
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+            overflow: hidden; touch-action: manipulation;
+        }
+        /* メニュー画面 */
+        #menu-screen { width: 100%; max-width: 500px; padding: 30px 20px; text-align: center; display: block; overflow-y: auto; max-height: 100vh; }
+        .menu-title { font-size: 2.8rem; color: var(--primary); margin: 0; font-weight: 900; text-shadow: 2px 2px 0 #ffe082; }
+        .menu-subtitle { font-size: 1rem; margin-bottom: 25px; font-weight: bold; opacity: 0.8; }
+        .stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; padding-bottom: 40px; }
+        .stage-card { 
+            background: white; border: 3px solid #ffe082; padding: 15px; 
+            border-radius: 18px; cursor: pointer; box-shadow: 0 4px 0 #ffe082;
+            display: flex; flex-direction: column; justify-content: center; transition: 0.1s;
+        }
+        .stage-card:active { transform: translateY(2px); box-shadow: none; }
+        .stage-num { display: block; font-size: 0.7rem; font-weight: bold; color: #8d6e63; }
+        .stage-name { display: block; font-size: 0.95rem; font-weight: bold; margin-top: 4px; }
+
+        /* ゲーム画面 */
+        #game-screen { display: none; width: 100%; max-width: 600px; flex-direction: column; height: 100vh; position: relative; }
+        #header { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); background: #fff8e1; border-bottom: 2px solid #ffe082; text-align: center; padding: 8px 0; }
+        .stat-val { display: block; font-size: 1.1rem; font-weight: bold; color: var(--primary); }
+        .stat-label { font-size: 0.65rem; font-weight: bold; }
+        #game-container { flex-grow: 1; position: relative; background: white; overflow: hidden; }
+        #falling-word { position: absolute; width: 100%; text-align: center; font-size: 2.2rem; font-weight: 800; top: -150px; color: #3e2723; padding: 0 10px; box-sizing: border-box; }
+        #choice-area { height: 35%; display: grid; grid-template-rows: repeat(3, 1fr); gap: 8px; padding: 12px; background: #fffde7; }
+        .choice-btn { border: 3px solid #ffe082; background: white; font-size: 1.1rem; font-weight: 600; border-radius: 12px; cursor: pointer; color: var(--text); box-shadow: 0 3px 0 #ffe082; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .choice-btn.wrong { visibility: hidden; }
+        
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 248, 225, 0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; }
+        .main-btn { padding: 12px 40px; font-size: 1.4rem; font-weight: bold; background: var(--primary); color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 0 #e67e22; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div id="menu-screen">
+    <h1 class="menu-title">ぽろたん</h1>
+    <p class="menu-subtitle">英検2級 600のステップ</p>
+    <div class="stage-grid" id="stage-buttons"></div>
+</div>
+
+<div id="game-screen">
+    <div id="header">
+        <div><span class="stat-label">てんすう</span><span id="score-val" class="stat-val">0</span></div>
+        <div><span class="stat-label">じかん</span><span id="timer-val" class="stat-val">60</span></div>
+        <div><span class="stat-label">れんぞく</span><span id="combo-val" class="stat-val">0</span></div>
+        <div><span class="stat-label">すすみ</span><span id="prog-val" class="stat-val">0%</span></div>
+    </div>
+    <div id="game-container">
+        <div id="falling-word"></div>
+        <div id="overlay">
+            <h2 id="result-title" style="font-size:2rem; color:var(--primary); margin:0;">終了！</h2>
+            <div id="result-score" style="font-size:1.8rem; font-weight:bold; margin:15px 0;">0 てん</div>
+            <button class="main-btn" onclick="backToMenu()">メニューへもどる</button>
+        </div>
+    </div>
+    <div id="choice-area">
+        <button class="choice-btn" onclick="handleInput(0)"></button>
+        <button class="choice-btn" onclick="handleInput(1)"></button>
+        <button class="choice-btn" onclick="handleInput(2)"></button>
+    </div>
+</div>
+
+<script>
+    const allStages = [
+        // STAGE 1 (単語 1-100)
+        [
+            {w: "opportunity", m: ["機会"], d: ["反対", "危険"]}, {w: "environment", m: ["環境"], d: ["政府", "娯楽"]}, {w: "appropriate", m: ["適切な"], d: ["不快な", "高価な"]}, {w: "alternative", m: ["代わりの"], d: ["伝統的な", "急速な"]}, {w: "significant", m: ["重要な"], d: ["些細な", "まれな"]}, {w: "essential", m: ["不可欠な"], d: ["余分な", "便利な"]}, {w: "contribute", m: ["貢献する"], d: ["消費する", "妨げる"]}, {w: "appreciate", m: ["感謝する"], d: ["無視する", "誤解する"]}, {w: "take part in", m: ["参加する"], d: ["離陸する", "世話をする"]}, {w: "look forward to", m: ["楽しみに待つ"], d: ["調べる", "似ている"]}, {w: "carry out", m: ["実行する"], d: ["使い果たす", "断る"]}, {w: "depend on", m: ["に依存する"], d: ["探す", "設立する"]}, {w: "on purpose", m: ["わざと"], d: ["突然", "偶然に"]}, {w: "in terms of", m: ["の観点から"], d: ["代わりに", "に加えて"]}, {w: "make up for", m: ["を埋め合わせる"], d: ["作り出す", "使い果たす"]}, {w: "by chance", m: ["偶然に"], d: ["わざと", "急いで"]}, {w: "result in", m: ["という結果になる"], d: ["から生じる", "に依存する"]}, {w: "as for", m: ["に関しては"], d: ["のせいで", "代わりに"]}, {w: "provide", m: ["提供する"], d: ["禁止する", "避ける"]}, {w: "benefit", m: ["利益"], d: ["損害", "娯楽"]}, {w: "reduce", m: ["減らす"], d: ["増やす", "維持する"]}, {w: "improve", m: ["改善する"], d: ["破壊する", "減らす"]}, {w: "individual", m: ["個人の"], d: ["共通の", "複雑な"]}, {w: "increase", m: ["増加させる"], d: ["減少する", "固定する"]}, {w: "require", m: ["必要とする"], d: ["提供する", "拒絶する"]}, {w: "influence", m: ["影響"], d: ["結果", "原因"]}, {w: "develop", m: ["開発する"], d: ["維持する", "止める"]}, {w: "community", m: ["地域社会"], d: ["政府", "個人"]}, {w: "allow", m: ["許可する"], d: ["禁止する", "無視する"]}, {w: "maintain", m: ["維持する"], d: ["変える", "壊す"]}, {w: "prevent", m: ["防ぐ"], d: ["励ます", "促進する"]}, {w: "experience", m: ["経験"], d: ["想像", "記憶"]}, {w: "local", m: ["地元の"], d: ["国際的な", "広大な"]}, {w: "standard", m: ["基準"], d: ["例外", "変化"]}, {w: "available", m: ["利用可能な"], d: ["貴重な", "不適切な"]}, {w: "issue", m: ["問題"], d: ["解決", "結果"]}, {w: "consumer", m: ["消費者"], d: ["生産者", "公務員"]}, {w: "potential", m: ["潜在的な"], d: ["実際の", "明らかな"]}, {w: "encourage", m: ["励ます"], d: ["落胆させる", "批判する"]}, {w: "resource", m: ["資源"], d: ["結果", "浪費"]}, {w: "solve", m: ["解決する"], d: ["引き起こす", "避ける"]}, {w: "suggest", m: ["提案する"], d: ["命令する", "無視する"]}, {w: "attitude", m: ["態度"], d: ["能力", "習慣"]}, {w: "efficient", m: ["効率的な"], d: ["無駄な", "高価な"]}, {w: "government", m: ["政府"], d: ["経済", "社会"]}, {w: "preserve", m: ["保護する"], d: ["破壊する", "変える"]}, {w: "affect", m: ["影響を与える"], d: ["無視する", "避ける"]}, {w: "avoid", m: ["避ける"], d: ["直面する", "好む"]}, {w: "conduct", m: ["行う"], d: ["避ける", "考える"]}, {w: "establish", m: ["設立する"], d: ["破壊する", "無視する"]}, {w: "demand", m: ["需要"], d: ["供給", "提案"]}, {w: "various", m: ["様々な"], d: ["単一の", "一定の"]}, {w: "prepare", m: ["準備する"], d: ["無視する", "壊す"]}, {w: "economic", m: ["経済の"], d: ["社会の", "文化の"]}, {w: "advantage", m: ["利点"], d: ["欠点", "間違い"]}, {w: "protect", m: ["保護する"], d: ["攻撃する", "無視する"]}, {w: "describe", m: ["述べる"], d: ["隠す", "尋ねる"]}, {w: "condition", m: ["状態"], d: ["結果", "目標"]}, {w: "accept", m: ["受け入れる"], d: ["拒絶する", "疑う"]}, {w: "challenge", m: ["課題"], d: ["成功", "解決"]}, {w: "common", m: ["共通の"], d: ["珍しい", "特別な"]}, {w: "decide", m: ["決定する"], d: ["迷う", "避ける"]}, {w: "instead of", m: ["の代わりに"], d: ["に加えて", "結果として"]}, {w: "due to", m: ["のために"], d: ["にもかわらず", "と同様に"]}, {w: "in addition", m: ["加えて"], d: ["しかしながら", "例えば"]}, {w: "take care of", m: ["の世話をする"], d: ["を利用する", "に反対する"]}, {w: "run out of", m: ["を使い果たす"], d: ["から逃げる", "を避ける"]}, {w: "participate in", m: ["参加する"], d: ["観察する", "拒絶する"]}, {w: "cope with", m: ["に対処する"], d: ["に同意する", "誇りに思う"]}, {w: "rely on", m: ["に頼る"], d: ["無視する", "避ける"]}, {w: "get rid of", m: ["を取り除く"], d: ["手に入れる", "増やす"]}, {w: "bring about", m: ["を引き起こす"], d: ["中止する", "予約する"]}, {w: "find out", m: ["見つけ出す"], d: ["隠す", "避ける"]}, {w: "put off", m: ["延期する"], d: ["脱ぐ", "中止する"]}, {w: "set up", m: ["設立する"], d: ["壊す", "延期する"]}, {w: "carry on", m: ["続ける"], d: ["止める", "始める"]}, {w: "succeed in", m: ["成功する"], d: ["に失敗する", "避ける"]}, {w: "in front of", m: ["の前に"], d: ["後ろに", "間に"]}, {w: "keep in touch", m: ["連絡を取り合う"], d: ["無視する", "訪ねる"]}, {w: "as a result", m: ["結果として"], d: ["例えば", "一方で"]}, {w: "by the way", m: ["ところで"], d: ["もちろん", "おそらく"]}, {w: "for instance", m: ["例えば"], d: ["したがって", "しかし"]}, {w: "deal with", m: ["対処する"], d: ["避ける", "無視する"]}, {w: "at first", m: ["最初は"], d: ["ついに", "二度と"]}, {w: "all of a sudden", m: ["突然"], d: ["徐々に", "ようやく"]}, {w: "believe in", m: ["信頼する"], d: ["疑う", "避ける"]}, {w: "up to", m: ["まで"], d: ["以上", "過ぎて"]}, {w: "go through", m: ["経験する"], d: ["避ける", "捨てる"]}, {w: "lead to", m: ["につながる"], d: ["から始まる", "止める"]}, {w: "focus on", m: ["集中する"], d: ["無視する", "避ける"]}, {w: "depend upon", m: ["に依存する"], d: ["断る", "設立する"]}, {w: "take advantage of", m: ["を利用する"], d: ["世話をする", "に反対する"]}, {w: "according to", m: ["によれば"], d: ["代わりに", "にもかかわらず"]}, {w: "in general", m: ["一般的に"], d: ["特に", "突然"]}, {w: "no matter how", m: ["たとえどんなにでも"], d: ["なぜなのか", "どうやってするか"]}, {w: "apart from", m: ["は別として"], d: ["のせいで", "と同様に"]}, {w: "be likely to", m: ["しそうである"], d: ["しそうにない", "したくない"]}, {w: "regardless of", m: ["に関係なく"], d: ["のせいで", "代わりに"]}, {w: "not only A but also B", m: ["AだけでなくBも"], d: ["AもBもない", "AではなくB"]}, {w: "in order to", m: ["するために"], d: ["のせいで", "する代わりに"]}
+        ],
+        // STAGE 2 (単語 101-200)
+        [
+            {w: "acknowledge", m: ["認める"], d: ["否定する", "隠す"]}, {w: "acquire", m: ["習得する"], d: ["失う", "売る"]}, {w: "adequate", m: ["十分な"], d: ["不足した", "不快な"]}, {w: "adjust", m: ["調整する"], d: ["壊す", "無視する"]}, {w: "adopt", m: ["採用する"], d: ["捨てる", "拒絶する"]}, {w: "advance", m: ["進歩"], d: ["後退", "停止"]}, {w: "advise", m: ["助言する"], d: ["命令する", "非難する"]}, {w: "afford", m: ["余裕がある"], d: ["不足する", "拒む"]}, {w: "agriculture", m: ["農業"], d: ["工業", "商業"]}, {w: "analyze", m: ["分析する"], d: ["作る", "壊す"]}, {w: "annual", m: ["一年に一度の"], d: ["毎日の", "永遠の"]}, {w: "anticipate", m: ["予想する"], d: ["思い出す", "忘れる"]}, {w: "anxiety", m: ["不安"], d: ["喜び", "勇気"]}, {w: "apparent", m: ["明白な"], d: ["疑わしい", "複雑な"]}, {w: "application", m: ["応募"], d: ["拒否", "解雇"]}, {w: "appointment", m: ["予約"], d: ["欠席", "自由"]}, {w: "approach", m: ["手法"], d: ["結果", "原因"]}, {w: "artificial", m: ["人工的な"], d: ["自然な", "高価な"]}, {w: "aspect", m: ["側面"], d: ["全体", "核心"]}, {w: "assume", m: ["仮定する"], d: ["証明する", "疑う"]}, {w: "attach", m: ["添付する"], d: ["外す", "捨てる"]}, {w: "attempt", m: ["試み"], d: ["成功", "拒否"]}, {w: "audience", m: ["聴衆"], d: ["役者", "監督"]}, {w: "author", m: ["著者"], d: ["読者", "店員"]}, {w: "authority", m: ["権威"], d: ["自由", "反乱"]}, {w: "barrier", m: ["障壁"], d: ["道", "窓"]}, {w: "base", m: ["拠点"], d: ["頂点", "例外"]}, {w: "behavior", m: ["行動"], d: ["思想", "外見"]}, {w: "boundary", m: ["境界"], d: ["中心", "混合"]}, {w: "brief", m: ["簡潔な"], d: ["長い", "退屈な"]}, {w: "broadcast", m: ["放送する"], d: ["聞く", "隠す"]}, {w: "budget", m: ["予算"], d: ["浪費", "貯金"]}, {w: "burden", m: ["重荷"], d: ["助け", "羽"]}, {w: "campaign", m: ["運動"], d: ["休息", "反対"]}, {w: "candidate", m: ["候補者"], d: ["当選者", "審判"]}, {w: "capacity", m: ["収容能力"], d: ["内容", "欠如"]}, {w: "career", m: ["経歴"], d: ["趣味", "名前"]}, {w: "celebrate", m: ["祝う"], d: ["嘆く", "忘れる"]}, {w: "certain", m: ["確信している"], d: ["疑っている", "驚いている"]}, {w: "character", m: ["性格"], d: ["体格", "年齢"]}, {w: "chemical", m: ["化学物質"], d: ["生物", "宝石"]}, {w: "circumstance", m: ["状況"], d: ["目的", "結果"]}, {w: "civilization", m: ["文明"], d: ["自然", "未開"]}, {w: "claim", m: ["主張する"], d: ["黙る", "疑う"]}, {w: "client", m: ["依頼人"], d: ["主人", "店員"]}, {w: "climate", m: ["気候"], d: ["天気", "景色"]}, {w: "collapse", m: ["崩壊する"], d: ["建設する", "改善する"]}, {w: "colleague", m: ["同僚"], d: ["敵", "家族"]}, {w: "combine", m: ["組み合わせる"], d: ["分ける", "壊す"]}, {w: "comfort", m: ["快適さ"], d: ["苦痛", "怒り"]}, {w: "command", m: ["命令する"], d: ["頼む", "許す"]}, {w: "comment", m: ["意見"], d: ["事実", "沈黙"]}, {w: "commercial", m: ["商業的な"], d: ["学問的な", "個人的な"]}, {w: "commit", m: ["コミットする"], d: ["逃げる", "拒む"]}, {w: "committee", m: ["委員会"], d: ["個人", "政府"]}, {w: "companion", m: ["仲間"], d: ["敵", "他人"]}, {w: "compare", m: ["比較する"], d: ["無視する", "決める"]}, {w: "compete", m: ["競争する"], d: ["協力する", "止める"]}, {w: "complain", m: ["不平を言う"], d: ["褒める", "同意する"]}, {w: "complex", m: ["複雑な"], d: ["単純な", "明白な"]}, {w: "component", m: ["構成要素"], d: ["全体", "製品"]}, {w: "concentrate", m: ["集中する"], d: ["散らす", "忘れる"]}, {w: "concept", m: ["概念"], d: ["事実", "物体"]}, {w: "conclude", m: ["結論を下す"], d: ["始める", "疑う"]}, {w: "confirm", m: ["確認する"], d: ["疑う", "変える"]}, {w: "conflict", m: ["衝突"], d: ["平和", "同意"]}, {w: "confuse", m: ["混乱させる"], d: ["納得させる", "教える"]}, {w: "consequence", m: ["結果"], d: ["原因", "始まり"]}, {w: "consider", m: ["よく考える"], d: ["忘れる", "無視する"]}, {w: "consist of", m: ["から成る"], d: ["を含む", "を作る"]}, {w: "constant", m: ["絶え間ない"], d: ["一時的な", "まれな"]}, {w: "construct", m: ["建設する"], d: ["壊す", "燃やす"]}, {w: "consult", m: ["相談する"], d: ["教える", "命令する"]}, {w: "contain", m: ["含む"], d: ["出す", "漏らす"]}, {w: "contemporary", m: ["現代の"], d: ["古代の", "未来の"]}, {w: "contrast", m: ["対照"], d: ["類似", "同一"]}, {w: "convenient", m: ["便利な"], d: ["不便な", "遠い"]}, {w: "convince", m: ["納得させる"], d: ["疑わせる", "騙す"]}, {w: "cooperate", m: ["協力する"], d: ["反対する", "競争する"]}, {w: "corporate", m: ["企業の"], d: ["個人の", "公共の"]}, {w: "costume", m: ["衣装"], d: ["私服", "裸"]}, {w: "counsel", m: ["助言"], d: ["非難", "命令"]}, {w: "countless", m: ["数えきれない"], d: ["わずかな", "限定的な"]}, {w: "creative", m: ["創造的な"], d: ["模倣の", "平凡な"]}, {w: "credit", m: ["信用"], d: ["疑い", "現金"]}, {w: "crisis", m: ["危機"], d: ["平和", "絶頂"]}, {w: "criticize", m: ["批判する"], d: ["褒める", "認める"]}, {w: "crucial", m: ["決定的な"], d: ["些細な", "予備の"]}, {w: "culture", m: ["文化"], d: ["自然", "技術"]}, {w: "curiosity", m: ["好奇心"], d: ["無関心", "恐怖"]}, {w: "current", m: ["現在の"], d: ["過去の", "未来の"]}, {w: "custom", m: ["習慣"], d: ["法律", "本能"]}, {w: "damage", m: ["損害"], d: ["利益", "修理"]}, {w: "debate", m: ["討論"], d: ["雑談", "合意"]}, {w: "decade", m: ["10年間"], d: ["1年間", "100年間"]}, {w: "decline", m: ["衰退する"], d: ["成長する", "維持する"]}, {w: "decorate", m: ["飾る"], d: ["汚す", "壊す"]}, {w: "defeat", m: ["負かす"], d: ["負ける", "助ける"]}, {w: "defend", m: ["守る"], d: ["攻める", "裏切る"]}, {w: "define", m: ["定義する"], d: ["ぼかす", "無視する"]}
+        ],
+        // STAGE 3 (単語 201-300)
+        [
+            {w: "demonstrate", m: ["実演する"], d: ["隠す", "無視する"]}, {w: "deny", m: ["否定する"], d: ["認める", "信じる"]}, {w: "departure", m: ["出発"], d: ["到着", "休憩"]}, {w: "deposit", m: ["預金"], d: ["借金", "支出"]}, {w: "deserve", m: ["値する"], d: ["欠けている", "避ける"]}, {w: "destination", m: ["目的地"], d: ["出発地", "経由地"]}, {w: "device", m: ["装置"], d: ["方法", "欠陥"]}, {w: "disaster", m: ["災害"], d: ["幸運", "準備"]}, {w: "discipline", m: ["規律"], d: ["混乱", "自由"]}, {w: "display", m: ["展示する"], d: ["隠す", "壊す"]}, {w: "distinguish", m: ["区別する"], d: ["混ぜる", "無視する"]}, {w: "distribute", m: ["分配する"], d: ["集める", "奪う"]}, {w: "domestic", m: ["国内の"], d: ["国際的な", "野生の"]}, {w: "dominate", m: ["支配する"], d: ["従う", "助ける"]}, {w: "drastic", m: ["思い切った"], d: ["緩やかな", "些細な"]}, {w: "edge", m: ["端"], d: ["中心", "底"]}, {w: "editor", m: ["編集者"], d: ["著者", "読者"]}, {w: "effort", m: ["努力"], d: ["結果", "怠慢"]}, {w: "elderly", m: ["高齢の"], d: ["若手の", "未熟な"]}, {w: "eliminate", m: ["排除する"], d: ["加える", "育てる"]}, {w: "emerge", m: ["現れる"], d: ["消える", "留まる"]}, {w: "emphasize", m: ["強調する"], d: ["無視する", "ぼかす"]}, {w: "employment", m: ["雇用"], d: ["失業", "引退"]}, {w: "enable", m: ["可能にする"], d: ["妨げる", "禁止する"]}, {w: "encounter", m: ["遭遇する"], d: ["避ける", "去る"]}, {w: "endure", m: ["耐える"], d: ["諦める", "楽しむ"]}, {w: "enormous", m: ["巨大な"], d: ["わずかな", "普通の"]}, {w: "ensure", m: ["確実にする"], d: ["疑う", "任せる"]}, {w: "enterprise", m: ["企業"], d: ["個人", "趣味"]}, {w: "entertain", m: ["楽しませる"], d: ["退屈させる", "怒らせる"]}, {w: "entire", m: ["全体の"], d: ["一部の", "わずかな"]}, {w: "environment", m: ["環境"], d: ["遺伝", "娯楽"]}, {w: "equipment", m: ["機器"], d: ["材料", "技術"]}, {w: "equivalent", m: ["同等の"], d: ["異なる", "優れた"]}, {w: "estimate", m: ["見積もる"], d: ["確定する", "忘れる"]}, {w: "evidence", m: ["証拠"], d: ["推測", "嘘"]}, {w: "exaggerate", m: ["誇張する"], d: ["過小評価する", "述べる"]}, {w: "examine", m: ["調査する"], d: ["無視する", "壊す"]}, {w: "exception", m: ["例外"], d: ["規則", "習慣"]}, {w: "excessive", m: ["過度の"], d: ["適切な", "わずかな"]}, {w: "exhibit", m: ["展示する"], d: ["隠す", "売る"]}, {w: "exist", m: ["存在する"], d: ["消える", "想像する"]}, {w: "expand", m: ["拡大する"], d: ["縮小する", "維持する"]}, {w: "expectation", m: ["期待"], d: ["失望", "現実"]}, {w: "expense", m: ["費用"], d: ["収入", "利益"]}, {w: "expert", m: ["専門家"], d: ["素人", "学生"]}, {w: "explore", m: ["探検する"], d: ["守る", "無視する"]}, {w: "export", m: ["輸出する"], d: ["輸入する", "製造する"]}, {w: "expose", m: ["さらす"], d: ["隠す", "守る"]}, {w: "extend", m: ["延長する"], d: ["短縮する", "止める"]}, {w: "extraordinary", m: ["並外れた"], d: ["平凡な", "ひどい"]}, {w: "facility", m: ["施設"], d: ["能力", "道具"]}, {w: "factor", m: ["要因"], d: ["結果", "全体"]}, {w: "faculty", m: ["学部/能力"], d: ["学生", "建物"]}, {w: "familiar", m: ["親しみのある"], d: ["見知らぬ", "不快な"]}, {w: "feature", m: ["特徴"], d: ["欠点", "背景"]}, {w: "fee", m: ["料金"], d: ["給料", "お釣り"]}, {w: "finance", m: ["財政"], d: ["労働", "法律"]}, {w: "flexible", m: ["柔軟な"], d: ["頑固な", "壊れやすい"]}, {w: "fluctuate", m: ["変動する"], d: ["安定する", "止まる"]}, {w: "forecast", m: ["予測する"], d: ["回想する", "忘れる"]}, {w: "formation", m: ["形成"], d: ["破壊", "混合"]}, {w: "fortunate", m: ["幸運な"], d: ["不運な", "貧しい"]}, {w: "foundation", m: ["基礎"], d: ["屋根", "例外"]}, {w: "frequent", m: ["頻繁な"], d: ["まれな", "一時的な"]}, {w: "frustrated", m: ["挫折した"], d: ["満足した", "驚いた"]}, {w: "function", m: ["機能"], d: ["故障", "外見"]}, {w: "fundamental", m: ["根本的な"], d: ["表面的な", "些細な"]}, {w: "generous", m: ["寛大な"], d: ["けちな", "厳しい"]}, {w: "genuine", m: ["本物の"], d: ["偽物の", "安価な"]}, {w: "gesture", m: ["身振り"], d: ["言葉", "沈黙"]}, {w: "global", m: ["地球規模の"], d: ["地域の", "国内の"]}, {w: "gradual", m: ["徐々の"], d: ["急激な", "突然の"]}, {w: "guarantee", m: ["保証する"], d: ["疑う", "拒む"]}, {w: "habit", m: ["習慣"], d: ["本能", "例外"]}, {w: "harvest", m: ["収穫"], d: ["種まき", "不作"]}, {w: "hesitate", m: ["ためらう"], d: ["即決する", "進む"]}, {w: "horizon", m: ["地平線"], d: ["垂直", "天辺"]}, {w: "hostile", m: ["敵意のある"], d: ["友好的な", "親切な"]}, {w: "huge", m: ["巨大な"], d: ["小さい", "狭い"]}, {w: "humble", m: ["謙虚な"], d: ["傲慢な", "高価な"]}, {w: "identical", m: ["同一の"], d: ["異なる", "似ている"]}, {w: "identify", m: ["特定する"], d: ["見逃す", "隠す"]}, {w: "ignore", m: ["無視する"], d: ["注目する", "認める"]}, {w: "illustrate", m: ["説明する"], d: ["隠す", "混乱させる"]}, {w: "imagination", m: ["想像力"], d: ["現実", "記憶"]}, {w: "immediate", m: ["即座の"], d: ["遅れた", "将来の"]}, {w: "immense", m: ["莫大な"], d: ["わずかな", "狭い"]}, {w: "impact", m: ["衝撃"], d: ["原因", "無視"]}, {w: "implement", m: ["実行する"], d: ["計画する", "中止する"]}, {w: "implication", m: ["含み"], d: ["明示", "除外"]}, {w: "import", m: ["輸入する"], d: ["輸出する", "売る"]}, {w: "impressive", m: ["印象的な"], d: ["退屈な", "平凡な"]}, {w: "incident", m: ["出来事"], d: ["計画", "平和"]}, {w: "indicate", m: ["示す"], d: ["隠す", "否定する"]}, {w: "inevitable", m: ["避けられない"], d: ["回避できる", "まれな"]}, {w: "inferior", m: ["劣った"], d: ["優れた", "同等の"]}, {w: "inflation", m: ["通貨膨張"], d: ["デフレ", "安定"]}, {w: "ingredient", m: ["材料"], d: ["製品", "道具"]}, {w: "initial", m: ["最初の"], d: ["最後の", "中間の"]}
+        ],
+        // STAGE 4 (単語 301-400)
+        [
+            {w: "initiative", m: ["主導権"], d: ["従属", "無関心"]}, {w: "injure", m: ["傷つける"], d: ["治す", "守る"]}, {w: "innocent", m: ["無罪の"], d: ["有罪の", "賢い"]}, {w: "innovation", m: ["革新"], d: ["伝統", "模倣"]}, {w: "inquiry", m: ["問い合わせ"], d: ["回答", "無視"]}, {w: "insight", m: ["洞察"], d: ["無知", "外見"]}, {w: "insist", m: ["主張する"], d: ["譲歩する", "疑う"]}, {w: "inspire", m: ["奮起させる"], d: ["落胆させる", "止める"]}, {w: "install", m: ["設置する"], d: ["撤去する", "壊す"]}, {w: "instance", m: ["例"], d: ["全体", "例外"]}, {w: "instinct", m: ["本能"], d: ["学習", "理性"]}, {w: "instruction", m: ["指示"], d: ["質問", "無視"]}, {w: "instrument", m: ["器具/楽器"], d: ["おもちゃ", "材料"]}, {w: "insufficient", m: ["不十分な"], d: ["十分な", "過剰な"]}, {w: "insurance", m: ["保険"], d: ["危険", "負債"]}, {w: "intellectual", m: ["知的な"], d: ["肉体的な", "感情的な"]}, {w: "intelligence", m: ["知能"], d: ["本能", "愚かさ"]}, {w: "intend", m: ["意図する"], d: ["偶然する", "忘れる"]}, {w: "interact", m: ["交流する"], d: ["孤立する", "避ける"]}, {w: "interference", m: ["干渉"], d: ["協力", "援助"]}, {w: "intermediate", m: ["中級の"], d: ["初歩の", "上級の"]}, {w: "internal", m: ["内部の"], d: ["外部の", "表面の"]}, {w: "interpret", m: ["解釈する"], d: ["無視する", "隠す"]}, {w: "interrupt", m: ["中断させる"], d: ["続ける", "助ける"]}, {w: "interval", m: ["間隔"], d: ["連続", "終わり"]}, {w: "invade", m: ["侵略する"], d: ["守る", "去る"]}, {w: "inventory", m: ["在庫"], d: ["注文", "売却"]}, {w: "invest", m: ["投資する"], d: ["消費する", "貯金する"]}, {w: "investigate", m: ["調査する"], d: ["見逃す", "忘れる"]}, {w: "involve", m: ["巻き込む"], d: ["除外する", "離れる"]}, {w: "isolate", m: ["孤立させる"], d: ["混ぜる", "繋ぐ"]}, {w: "journal", m: ["日誌/雑誌"], d: ["教科書", "手紙"]}, {w: "judge", m: ["判断する"], d: ["迷う", "無視する"]}, {w: "justice", m: ["正義"], d: ["不当", "罪"]}, {w: "justify", m: ["正当化する"], d: ["非難する", "疑う"]}, {w: "labor", m: ["労働"], d: ["休息", "遊び"]}, {w: "landscape", m: ["風景"], d: ["肖像", "静物"]}, {w: "launch", m: ["開始する"], d: ["終える", "止める"]}, {w: "layer", m: ["層"], d: ["点", "全体"]}, {w: "lecture", m: ["講義"], d: ["雑談", "試験"]}, {w: "legal", m: ["法律の"], d: ["違法の", "道徳の"]}, {w: "legend", m: ["伝説"], d: ["事実", "ニュース"]}, {w: "leisure", m: ["余暇"], d: ["仕事", "家事"]}, {w: "liberty", m: ["自由"], d: ["束縛", "義務"]}, {w: "license", m: ["免許"], d: ["禁止", "未熟"]}, {w: "limit", m: ["制限する"], d: ["広げる", "許す"]}, {w: "literature", m: ["文学"], d: ["科学", "数学"]}, {w: "loan", m: ["貸付"], d: ["預金", "贈与"]}, {w: "locate", m: ["位置を特定する"], d: ["失う", "動かす"]}, {w: "logical", m: ["論理的な"], d: ["感情的な", "矛盾した"]}, {w: "loyal", m: ["忠実な"], d: ["不誠実な", "新しい"]}, {w: "luxury", m: ["贅沢"], d: ["質素", "必需品"]}, {w: "magnificent", m: ["壮大な"], d: ["みすぼらしい", "小さい"]}, {w: "major", m: ["主要な"], d: ["些細な", "専門の"]}, {w: "manufacture", m: ["製造する"], d: ["壊す", "買う"]}, {w: "margin", m: ["余白/差"], d: ["中心", "全体"]}, {w: "marine", m: ["海の"], d: ["陸の", "空の"]}, {w: "massive", m: ["どっしりした"], d: ["軽い", "薄い"]}, {w: "master", m: ["習得する"], d: ["失敗する", "忘れる"]}, {w: "material", m: ["材料"], d: ["精神", "結果"]}, {w: "mature", m: ["成熟した"], d: ["未熟な", "古い"]}, {w: "maximum", m: ["最大"], d: ["最小", "平均"]}, {w: "measure", m: ["測定する"], d: ["推測する", "無視する"]}, {w: "mechanism", m: ["仕組み"], d: ["結果", "偶然"]}, {w: "medical", m: ["医学の"], d: ["工学の", "経済の"]}, {w: "mention", m: ["言及する"], d: ["黙る", "忘れる"]}, {w: "merit", m: ["長所"], d: ["短所", "普通"]}, {w: "method", m: ["方法"], d: ["結果", "偶然"]}, {w: "military", m: ["軍隊の"], d: ["民間の", "平和の"]}, {w: "minimum", m: ["最小"], d: ["最大", "平均"]}, {w: "minor", m: ["重要でない"], d: ["主要な", "大きな"]}, {w: "mission", m: ["使命"], d: ["遊び", "休憩"]}, {w: "moderate", m: ["適度な"], d: ["極端な", "激しい"]}, {w: "modify", m: ["修正する"], d: ["維持する", "壊す"]}, {w: "monitor", m: ["監視する"], d: ["無視する", "信じる"]}, {w: "moral", m: ["道徳的な"], d: ["不道徳な", "法律の"]}, {w: "motivate", m: ["動機づける"], d: ["落胆させる", "止める"]}, {w: "multiple", m: ["多数の"], d: ["単一の", "わずかな"]}, {w: "mutual", m: ["相互の"], d: ["一方的な", "個人の"]}, {w: "native", m: ["母国の"], d: ["外国の", "未知の"]}, {w: "negative", m: ["否定的な"], d: ["肯定的な", "明るい"]}, {w: "negotiate", m: ["交渉する"], d: ["命令する", "従う"]}, {w: "neutral", m: ["中立の"], d: ["偏った", "熱心な"]}, {w: "noble", m: ["高貴な"], d: ["卑しい", "貧しい"]}, {w: "notable", m: ["注目すべき"], d: ["平凡な", "些細な"]}, {w: "notice", m: ["気づく"], d: ["無視する", "忘れる"]}, {w: "notion", m: ["考え"], d: ["事実", "物体"]}, {w: "numerous", m: ["多数の"], d: ["わずかな", "珍しい"]}, {w: "objective", m: ["客観的な/目標"], d: ["主観的な", "原因"]}, {w: "obligation", m: ["義務"], d: ["自由", "権利"]}, {w: "observation", m: ["観察"], d: ["無視", "想像"]}, {w: "obstacle", m: ["障害"], d: ["助け", "近道"]}, {w: "obtain", m: ["得る"], d: ["失う", "与える"]}, {w: "obvious", m: ["明らかな"], d: ["疑わしい", "複雑な"]}, {w: "occasion", m: ["機会/場合"], d: ["常に", "理由"]}, {w: "occupation", m: ["職業"], d: ["趣味", "遊び"]}, {w: "occur", m: ["起こる"], d: ["消える", "防ぐ"]}, {w: "offense", m: ["違反/攻撃"], d: ["防御", "遵守"]}, {w: "operate", m: ["操作する"], d: ["壊す", "止める"]}, {w: "opinion", m: ["意見"], d: ["事実", "沈黙"]}
+        ],
+        // STAGE 5 (熟語 1-100)
+        [
+            {w: "agree with", m: ["に同意する"], d: ["に反対する", "を避ける"]}, {w: "apply for", m: ["に申し込む"], d: ["を辞める", "を無視する"]}, {w: "approve of", m: ["を承認する"], d: ["に反対する", "を忘れる"]}, {w: "arrive at", m: ["に到着する"], d: ["を出発する", "を通る"]}, {w: "ask for", m: ["を求める"], d: ["を与える", "を断る"]}, {w: "be absent from", m: ["を欠席する"], d: ["に出席する", "を楽しむ"]}, {w: "be accustomed to", m: ["に慣れている"], d: ["を嫌っている", "を忘れる"]}, {w: "be afraid of", m: ["を恐れる"], d: ["を好む", "を信じる"]}, {w: "be aware of", m: ["に気づいている"], d: ["を無視している", "を忘れている"]}, {w: "be based on", m: ["に基づいている"], d: ["を無視している", "から離れている"]}, {w: "be capable of", m: ["ができる"], d: ["ができない", "を嫌う"]}, {w: "be composed of", m: ["で構成されている"], d: ["を作っている", "を壊している"]}, {w: "be different from", m: ["と異なる"], d: ["と同じである", "に似ている"]}, {w: "be familiar with", m: ["に精通している"], d: ["を知らない", "を嫌う"]}, {w: "be filled with", m: ["で満たされている"], d: ["が不足している", "を捨てている"]}, {w: "be fond of", m: ["が好きである"], d: ["が嫌いである", "を恐れる"]}, {w: "be proud of", m: ["を誇りに思う"], d: ["を恥じる", "を無視する"]}, {w: "be responsible for", m: ["に責任がある"], d: ["が無関係である", "を避ける"]}, {w: "be satisfied with", m: ["に満足している"], d: ["に不満である", "を疑う"]}, {w: "be short of", m: ["が不足している"], d: ["が過剰である", "を持っている"]}, {w: "be similar to", m: ["に似ている"], d: ["と異なる", "を嫌う"]}, {w: "be tired of", m: ["に飽きている"], d: ["を楽しんでいる", "を始めた"]}, {w: "belong to", m: ["に所属する"], d: ["を離れる", "を支配する"]}, {w: "break down", m: ["故障する"], d: ["動き出す", "修理する"]}, {w: "break out", m: ["急に起こる"], d: ["終わる", "隠れる"]}, {w: "bring up", m: ["を育てる"], d: ["を捨てる", "を壊す"]}, {w: "call off", m: ["を中止する"], d: ["を始める", "を続ける"]}, {w: "call on", m: ["を訪問する"], d: ["を避ける", "を呼ぶ"]}, {w: "care for", m: ["の世話をする"], d: ["を無視する", "を嫌う"]}, {w: "carry out", m: ["を実行する"], d: ["を計画する", "を止める"]}, {w: "catch up with", m: ["に追いつく"], d: ["を引き離す", "を避ける"]}, {w: "check in", m: ["搭乗手続きをする"], d: ["出発する", "外出する"]}, {w: "come across", m: ["を偶然見つける"], d: ["を隠す", "を捨てる"]}, {w: "come true", m: ["実現する"], d: ["失敗する", "忘れる"]}, {w: "come up with", m: ["を思いつく"], d: ["を忘れる", "を捨てる"]}, {w: "congratulate A on B", m: ["BのことでAを祝う"], d: ["BでAを叱る", "BをAに与える"]}, {w: "consist of", m: ["から成る"], d: ["を含む", "を作る"]}, {w: "cut down on", m: ["を減らす"], d: ["を増やす", "を維持する"]}, {w: "deal with", m: ["に対処する"], d: ["を避ける", "を無視する"]}, {w: "depend on", m: ["に依存する"], d: ["を断る", "を支配する"]}, {w: "devote A to B", m: ["AをBに捧げる"], d: ["AをBから奪う", "AをBに売る"]}, {w: "die of", m: ["で死ぬ"], d: ["で治る", "で生まれる"]}, {w: "do without", m: ["なしで済ます"], d: ["を欲しがる", "を使う"]}, {w: "drop in", m: ["立ち寄る"], d: ["去る", "滞在する"]}, {w: "fall asleep", m: ["眠りに落ちる"], d: ["目が覚める", "立ち上がる"]}, {w: "figure out", m: ["を理解する"], d: ["を忘れる", "を隠す"]}, {w: "fill out", m: ["に記入する"], d: ["を消す", "を捨てる"]}, {w: "find out", m: ["を見つけ出す"], d: ["を隠す", "を失う"]}, {w: "get along with", m: ["と仲良くやる"], d: ["と喧嘩する", "を避ける"]}, {w: "get in touch with", m: ["と連絡を取る"], d: ["を避ける", "を忘れる"]}, {w: "get lost", m: ["道に迷う"], d: ["到着する", "見つける"]}, {w: "get over", m: ["を乗り越える"], d: ["に屈する", "を避ける"]}, {w: "get rid of", m: ["を取り除く"], d: ["を手に入れる", "を増やす"]}, {w: "get used to", m: ["に慣れる"], d: ["を嫌う", "を忘れる"]}, {w: "give in", m: ["屈する"], d: ["抵抗する", "勝つ"]}, {w: "give up", m: ["諦める"], d: ["続ける", "始める"]}, {w: "go ahead", m: ["先に進む"], d: ["戻る", "止まる"]}, {w: "go on", m: ["続ける"], d: ["止める", "戻る"]}, {w: "go through", m: ["を経験する"], d: ["を避ける", "を忘れる"]}, {w: "graduate from", m: ["を卒業する"], d: ["に入学する", "を辞める"]}, {w: "happen to", m: ["たまたま〜する"], d: ["わざと〜する", "を決める"]}, {w: "have a look at", m: ["を見る"], d: ["を隠す", "を無視する"]}, {w: "have an effect on", m: ["に影響を与える"], d: ["を無視する", "を避ける"]}, {w: "hear from", m: ["から連絡がある"], d: ["に連絡する", "を忘れる"]}, {w: "hear of", m: ["のことを聞く"], d: ["を無視する", "を知っている"]}, {w: "help A with B", m: ["AのBを手伝う"], d: ["AのBを邪魔する", "BをAに与える"]}, {w: "hold on", m: ["電話を切らずに待つ"], d: ["電話を切る", "電話をかける"]}, {w: "hurry up", m: ["急ぐ"], d: ["ゆっくりする", "止まる"]}, {w: "in a hurry", m: ["急いで"], d: ["ゆっくりと", "わざと"]}, {w: "in fact", m: ["実は"], d: ["おそらく", "決して"]}, {w: "in front of", m: ["の前に"], d: ["の後ろに", "の間に"]}, {w: "in other words", m: ["言い換えれば"], d: ["例えば", "しかし"]}, {w: "in public", m: ["人前で"], d: ["密かに", "一人で"]}, {w: "in short", m: ["要約すると"], d: ["詳しく言うと", "例えば"]}, {w: "in spite of", m: ["にもかわらず"], d: ["のせいで", "と同様に"]}, {w: "in time", m: ["間に合って"], d: ["遅れて", "早く"]}, {w: "keep in mind", m: ["を心に留める"], d: ["を忘れる", "を無視する"]}, {w: "keep on", m: ["を続ける"], d: ["を止める", "を始める"]}, {w: "keep up with", m: ["に遅れずについていく"], d: ["から遅れる", "を避ける"]}, {w: "laugh at", m: ["を笑う"], d: ["を褒める", "を怒る"]}, {w: "lay off", m: ["を解雇する"], d: ["を雇う", "を助ける"]}, {w: "lead to", m: ["につながる"], d: ["から始まる", "を止める"]}, {w: "learn by heart", m: ["を暗記する"], d: ["を忘れる", "を調べる"]}, {w: "leave A for B", m: ["Bに向けてAを出発する"], d: ["BからAに来る", "AとBを捨てる"]}, {w: "let A down", m: ["Aを失望させる"], d: ["Aを喜ばせる", "Aを助ける"]}, {w: "listen to", m: ["を聴く"], d: ["を無視する", "を話す"]}, {w: "look after", m: ["の世話をする"], d: ["を無視する", "を嫌う"]}, {w: "look for", m: ["を探す"], d: ["を隠す", "を捨てる"]}, {w: "look forward to", m: ["を楽しみに待つ"], d: ["を恐れる", "を避ける"]}, {w: "look into", m: ["を調査する"], d: ["を無視する", "を信じる"]}, {w: "look like", m: ["に似ている"], d: ["と異なる", "を好む"]}, {w: "look up to", m: ["を尊敬する"], d: ["を見下す", "を避ける"]}, {w: "make a decision", m: ["決定する"], d: ["迷う", "避ける"]}, {w: "make a mistake", m: ["間違える"], d: ["成功する", "直す"]}, {w: "make sense", m: ["意味をなす"], d: ["矛盾する", "難しい"]}, {w: "make sure", m: ["を確かめる"], d: ["を疑う", "を忘れる"]}, {w: "make up for", m: ["の埋め合わせをする"], d: ["を悪化させる", "を奪う"]}, {w: "make up one's mind", m: ["決心する"], d: ["迷う", "忘れる"]}, {w: "manage to", m: ["なんとか〜する"], d: ["失敗する", "諦める"]}, {w: "no longer", m: ["もはや〜ない"], d: ["まだ〜ある", "常に〜だ"]}
+        ],
+        // STAGE 6 (熟語 101-200)
+        [
+            {w: "on foot", m: ["徒歩で"], d: ["車で", "急いで"]}, {w: "on purpose", m: ["わざと"], d: ["偶然に", "急いで"]}, {w: "on time", m: ["時間通りに"], d: ["遅れて", "早く"]}, {w: "out of order", m: ["故障して"], d: ["順調で", "整理されて"]}, {w: "out of the question", m: ["不可能な"], d: ["可能な", "重要な"]}, {w: "participate in", m: ["に参加する"], d: ["を避ける", "を観察する"]}, {w: "pass away", m: ["亡くなる"], d: ["生まれる", "合格する"]}, {w: "pay attention to", m: ["に注意を払う"], d: ["を無視する", "を忘れる"]}, {w: "pick up", m: ["拾う/迎えに行く"], d: ["捨てる", "見送る"]}, {w: "prevent A from B", m: ["AがBするのを妨げる"], d: ["AにBさせる", "AをBで助ける"]}, {w: "provide A with B", m: ["AにBを提供する"], d: ["AからBを奪う", "AをBに売る"]}, {w: "put away", m: ["を片付ける"], d: ["を散らかす", "を捨てる"]}, {w: "put off", m: ["を延期する"], d: ["を始める", "を中止する"]}, {w: "put on", m: ["を身につける"], d: ["を脱ぐ", "を捨てる"]}, {w: "put up with", m: ["を我慢する"], d: ["を避ける", "を楽しむ"]}, {w: "refer to", m: ["参照/言及する"], d: ["無視する", "隠す"]}, {w: "regardless of", m: ["に関係なく"], d: ["のせいで", "考慮して"]}, {w: "rely on", m: ["に頼る"], d: ["無視する", "支配する"]}, {w: "remind A of B", m: ["AにBを思い出させる"], d: ["AにBを忘れさせる", "AをBで叱る"]}, {w: "result in", m: ["という結果になる"], d: ["から生じる", "を止める"]}, {w: "run out of", m: ["を使い果たす"], d: ["手に入れる", "貯める"]}, {w: "search for", m: ["を探す"], d: ["隠す", "見つける"]}, {w: "set off", m: ["出発する"], d: ["到着する", "止まる"]}, {w: "set up", m: ["設立/準備する"], d: ["壊す", "延期する"]}, {w: "show off", m: ["見せびらかす"], d: ["隠す", "恥じる"]}, {w: "slow down", m: ["速度を落とす"], d: ["加速する", "止まる"]}, {w: "so far", m: ["今までのところ"], d: ["遠くに", "ついに"]}, {w: "spend A on B", m: ["AをBに費やす"], d: ["AをBから得る", "AをBに貯める"]}, {w: "stand for", m: ["象徴する"], d: ["隠す", "反対する"]}, {w: "stand out", m: ["目立つ"], d: ["隠れる", "似ている"]}, {w: "stay up", m: ["寝ずに起きている"], d: ["早く寝る", "立ち上がる"]}, {w: "stop by", m: ["立ち寄る"], d: ["去る", "滞在する"]}, {w: "take a look at", m: ["を見る"], d: ["隠す", "無視する"]}, {w: "take advantage of", m: ["を利用する"], d: ["避ける", "助ける"]}, {w: "take after", m: ["に似ている"], d: ["追う", "嫌う"]}, {w: "take care of", m: ["の世話をする"], d: ["無視する", "壊す"]}, {w: "take part in", m: ["に参加する"], d: ["避ける", "見学する"]}, {w: "take place", m: ["行われる"], d: ["中止される", "移動する"]}, {w: "tell A from B", m: ["AとBを見分ける"], d: ["AをBに話す", "AをBに混ぜる"]}, {w: "thanks to", m: ["のおかげで"], d: ["のせいで", "にもかわらず"]}, {w: "think over", m: ["を熟考する"], d: ["忘れる", "即決する"]}, {w: "throw away", m: ["を捨てる"], d: ["拾う", "貯める"]}, {w: "try on", m: ["を試着する"], d: ["脱ぐ", "捨てる"]}, {w: "turn down", m: ["断る/音を下げる"], d: ["受ける", "上げる"]}, {w: "turn off", m: ["を消す"], d: ["つける", "壊す"]}, {w: "turn on", m: ["をつける"], d: ["消す", "壊す"]}, {w: "turn out to be", m: ["であることがわかる"], d: ["隠す", "疑う"]}, {w: "wait for", m: ["を待つ"], d: ["出発する", "避ける"]}, {w: "watch out for", m: ["に用心する"], d: ["無視する", "信じる"]}, {w: "work out", m: ["うまくいく/運動"], d: ["失敗する", "壊れる"]}, {w: "used to", m: ["以前は〜だった"], d: ["今は〜だ", "予定だ"]}, {w: "hardly ever", m: ["めったに〜ない"], d: ["常にだ", "時々だ"]}, {w: "little by little", m: ["少しずつ"], d: ["突然", "一度に"]}, {w: "no matter what", m: ["何が起ころうとも"], d: ["何もなければ", "理由あれ"]}, {w: "so that A can B", m: ["AがBできるように"], d: ["AがBしたせい", "代わりに"]}, {w: "as long as", m: ["である限り"], d: ["であるせい", "と同様"]}, {w: "as soon as", m: ["するとすぐに"], d: ["する前", "した後"]}, {w: "by the time", m: ["する時までに"], d: ["する時から", "同時に"]}, {w: "even if", m: ["たとえ〜でも"], d: ["〜なので", "〜のせい"]}, {w: "in case", m: ["に備えて"], d: ["結果として", "代わりに"]}, {w: "now that", m: ["今や〜なので"], d: ["以前は〜で", "もし〜なら"]}, {w: "unless", m: ["でない限り"], d: ["である限り", "なので"]}, {w: "whether A or B", m: ["AかBか"], d: ["AもBも", "AではなくB"]}, {w: "provided that", m: ["という条件で"], d: ["かわらず", "無視して"]}, {w: "supposing that", m: ["もし〜だとしたら"], d: ["結果として", "避けて"]}, {w: "on condition that", m: ["という条件で"], d: ["のせい", "関係なく"]}, {w: "for fear of", m: ["を恐れて"], d: ["期待して", "無視して"]}, {w: "with a view to", m: ["する目的で"], d: ["避けるため", "した結果"]}, {w: "be to do", m: ["することになっている"], d: ["したことある", "したくない"]}, {w: "have only to do", m: ["〜しさえすればよい"], d: ["〜禁", "〜必要ある"]}, {w: "cannot help doing", m: ["せずにはいられない"], d: ["禁", "必要ない"]}, {w: "it is no use doing", m: ["しても無駄だ"], d: ["したほうがいい", "必須"]}, {w: "worth doing", m: ["する価値がある"], d: ["禁", "無駄だ"]}, {w: "feel like doing", m: ["したい気がする"], d: ["したくない", "必須"]}, {w: "on doing", m: ["するとすぐに"], d: ["する前", "した後"]}, {w: "prevent A from doing", m: ["Aの〜を妨げる"], d: ["Aに〜させる", "Aと〜する"]}, {w: "spend A doing", m: ["〜してAを過ごす"], d: ["〜せずA得", "〜を止める"]}, {w: "be busy doing", m: ["するのに忙しい"], d: ["暇にしている", "止める"]}, {w: "have difficulty doing", m: ["するのに苦労する"], d: ["簡単だ", "避ける"]}, {w: "keep A doing", m: ["Aを〜させ続ける"], d: ["〜止める", "避ける"]}, {w: "catch A doing", m: ["Aが〜の見つける"], d: ["〜させる", "〜助ける"]}, {w: "find A doing", m: ["Aが〜の見つける"], d: ["〜させる", "〜頼む"]}, {w: "leave A doing", m: ["Aを〜ままにする"], d: ["〜止める", "〜し始める"]}, {w: "remind A to do", m: ["Aに〜思い出させる"], d: ["〜忘れさせる", "〜禁じる"]}, {w: "allow A to do", m: ["Aが〜を許可する"], d: ["〜禁止する", "〜避ける"]}, {w: "force A to do", m: ["Aに無理やり〜させる"], d: ["〜許す", "〜頼む"]}, {w: "enable A to do", m: ["Aが〜を可能にする"], d: ["〜妨げる", "〜禁じる"]}, {w: "encourage A to do", m: ["Aに〜を勧める"], d: ["〜やめさせる", "〜叱る"]}, {w: "expect A to do", m: ["Aが〜を期待する"], d: ["〜恐れる", "〜無視する"]}, {w: "persuade A to do", m: ["Aを説得して〜させる"], d: ["〜諦めさせる", "〜騙す"]}, {w: "want A to do", m: ["Aに〜してほしい"], d: ["〜ほしくない", "〜するつもり"]}, {w: "would like A to do", m: ["Aに〜して頂きたい"], d: ["〜ほしくない", "〜したくない"]}, {w: "tell A to do", m: ["Aに〜するように言う"], d: ["〜禁じる", "〜頼む"]}, {w: "ask A to do", m: ["Aに〜するように頼む"], d: ["〜命じる", "〜断る"]}, {w: "order A to do", m: ["Aに〜するように命じる"], d: ["〜頼む", "〜許す"]}, {w: "advise A to do", m: ["Aに〜ように助言する"], d: ["〜命じる", "〜非難する"]}, {w: "get A to do", m: ["Aに〜してもらう"], d: ["〜させない", "〜避ける"]}, {w: "cause A to do", m: ["Aが〜原因となる"], d: ["〜防ぐ", "〜助ける"]}, {w: "help A (to) do", m: ["Aが〜するのを手伝う"], d: ["〜邪魔する", "〜止める"]}, {w: "be forced to do", m: ["〜せざるを得ない"], d: ["〜してもよい", "〜したくない"]}
+        ]
+    ];
+
+    let currentStageData = [];
+    let deck = [], score = 0, timeLeft = 60, combo = 0, gameActive = false;
+    let currentQ = null, dropPos = -100, dropSpeed = 2.4;
+    let animId = null, timerId = null, isProcessing = false;
+    let audioCtx;
+
+    window.onload = function() {
+        const stageGrid = document.getElementById('stage-buttons');
+        const stageNames = ["単語 1-100", "単語 101-200", "単語 201-300", "単語 301-400", "熟語 1-100", "熟語 101-200"];
+        
+        stageGrid.innerHTML = '';
+        stageNames.forEach((name, i) => {
+            const card = document.createElement('div');
+            card.className = 'stage-card';
+            card.onclick = function() { selectStage(i); };
+            card.innerHTML = `<span class="stage-num">STAGE ${i+1}</span><span class="stage-name">${name}</span>`;
+            stageGrid.appendChild(card);
+        });
+    };
+
+    function selectStage(index) {
+        if (!allStages[index] || allStages[index].length === 0) { alert("準備中です！"); return; }
+        currentStageData = allStages[index];
+        document.getElementById('menu-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'flex';
+        initGame();
+    }
+
+    function backToMenu() {
+        gameActive = false;
+        clearInterval(timerId);
+        cancelAnimationFrame(animId);
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('menu-screen').style.display = 'block';
+        document.getElementById('overlay').style.display = 'none';
+    }
+
+    function initGame() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        score = 0; timeLeft = 60; combo = 0; gameActive = true; dropSpeed = 2.4;
+        deck = [...currentStageData].sort(() => Math.random() - 0.5);
+        updateUI();
+        startTimer();
+        nextWord();
+    }
+
+    function startTimer() {
+        if (timerId) clearInterval(timerId);
+        timerId = setInterval(() => {
+            if (!gameActive) return;
+            timeLeft--;
+            document.getElementById('timer-val').innerText = timeLeft;
+            if (timeLeft <= 0) stopGame();
+        }, 1000);
+    }
+
+    function nextWord() {
+        if (!gameActive) return;
+        isProcessing = false;
+        if (deck.length === 0) deck = [...currentStageData].sort(() => Math.random() - 0.5);
+        currentQ = deck.shift();
+        const correctVal = currentQ.m[0];
+        const choices = [correctVal, ...currentQ.d].sort(() => Math.random() - 0.5);
+        currentQ.correct = correctVal;
+        currentQ.currentChoices = choices;
+        document.getElementById('falling-word').innerText = currentQ.w;
+        const btns = document.querySelectorAll('.choice-btn');
+        choices.forEach((t, i) => {
+            btns[i].innerText = t;
+            btns[i].style.visibility = "visible";
+        });
+        if(window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(currentQ.w);
+            utter.lang = 'en-US';
+            window.speechSynthesis.speak(utter);
+        }
+        dropPos = -100;
+        if (animId) cancelAnimationFrame(animId);
+        animId = requestAnimationFrame(updateFrame);
+    }
+
+    function updateFrame() {
+        if (!gameActive || isProcessing) return;
+        dropPos += dropSpeed;
+        document.getElementById('falling-word').style.top = dropPos + 'px';
+        if (dropPos > document.getElementById('game-container').clientHeight - 10) {
+            isProcessing = true;
+            playTone(150, 'square');
+            combo = 0; updateUI(); setTimeout(nextWord, 150);
+        } else {
+            animId = requestAnimationFrame(updateFrame);
+        }
+    }
+
+    function handleInput(idx) {
+        if (!gameActive || isProcessing) return;
+        if (currentQ.currentChoices[idx] === currentQ.correct) {
+            isProcessing = true;
+            playTone(880, 'sine');
+            const bonus = Math.max(0, Math.floor((600 - dropPos) / 5));
+            score += Math.floor((100 + bonus) * (1 + combo/10));
+            combo++; dropSpeed += 0.03;
+            updateUI(); nextWord();
+        } else {
+            playTone(150, 'square');
+            combo = 0; updateUI();
+            document.querySelectorAll('.choice-btn')[idx].style.visibility = "hidden";
+        }
+    }
+
+    function playTone(freq, type) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function updateUI() {
+        document.getElementById('score-val').innerText = score.toLocaleString();
+        document.getElementById('combo-val').innerText = combo;
+        const prog = Math.floor(((currentStageData.length - deck.length) / currentStageData.length) * 100);
+        document.getElementById('prog-val').innerText = prog + "%";
+    }
+
+    function stopGame() {
+        gameActive = false;
+        clearInterval(timerId);
+        cancelAnimationFrame(animId);
+        document.getElementById('result-score').innerText = score.toLocaleString() + " てん";
+        document.getElementById('overlay').style.display = 'flex';
+    }
+</script>
+</body>
+</html>
